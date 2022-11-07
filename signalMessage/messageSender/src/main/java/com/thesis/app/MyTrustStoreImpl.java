@@ -33,24 +33,24 @@ public class MyTrustStoreImpl implements TrustStore {
             registrationId = KeyHelper.generateRegistrationId(false);
             preKeys = KeyHelper.generatePreKeys(1, 2);
             signedPreKey = KeyHelper.generateSignedPreKey(identityKeyPair, 10078957);
-            try {
-                MongoClient mongoClient = new MongoClient();
-                DB database = mongoClient.getDB("db");
-                DBCollection collection = database.getCollection("signalKeys");
-                DBObject key = new BasicDBObject("_id", "signal")
-                            .append("UUID", "")
-                            .append("identityKeyPair", new BasicDBObject("publickey", identityKeyPair.getPublicKey())
-                                .append("privatekey", identityKeyPair.getPrivateKey()))
-                            .append("signedPreKey", new BasicDBObject("id", signedPreKey.getId())
-                                .append("timestamp", signedPreKey.getTimestamp())
-                                .append("publickey", signedPreKey.getKeyPair().getPublicKey())
-                                .append("privatekey", signedPreKey.getKeyPair().getPrivateKey()))                             
-                            .append("registrationID", registrationId);
+            // try {
+            //     MongoClient mongoClient = new MongoClient();
+            //     DB database = mongoClient.getDB("db");
+            //     DBCollection collection = database.getCollection("signalKeys");
+            //     DBObject key = new BasicDBObject("_id", "signal")
+            //                 .append("UUID", "")
+            //                 .append("identityKeyPair", new BasicDBObject("publickey", identityKeyPair.getPublicKey())
+            //                     .append("privatekey", identityKeyPair.getPrivateKey()))
+            //                 .append("signedPreKey", new BasicDBObject("id", signedPreKey.getId())
+            //                     .append("timestamp", signedPreKey.getTimestamp())
+            //                     .append("publickey", signedPreKey.getKeyPair().getPublicKey())
+            //                     .append("privatekey", signedPreKey.getKeyPair().getPrivateKey()))                             
+            //                 .append("registrationID", registrationId);
 
-            } catch (UnknownHostException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
+            // } catch (UnknownHostException e) {
+            //     // TODO Auto-generated catch block
+            //     e.printStackTrace();
+            // }
 
 
 
@@ -58,7 +58,7 @@ public class MyTrustStoreImpl implements TrustStore {
 
     @Override
     public InputStream getKeyStoreInputStream() {
-        File initialFile = new File("messageSender/src/main/java/com/thesis/app/whisper.store");
+        File initialFile = new File("/Users/evanchopra/Desktop/Thesis/signal-plugin/signalMessage/messageSender/src/main/java/com/thesis/app/newcert");
         InputStream targetStream = null;
         try {
             targetStream = new FileInputStream(initialFile);

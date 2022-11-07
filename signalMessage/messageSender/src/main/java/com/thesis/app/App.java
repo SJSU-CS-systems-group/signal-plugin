@@ -2,12 +2,20 @@ package com.thesis.app;
 import java.io.IOException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
+import java.security.SecureRandom;
 import java.security.Security;
+import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+
 import org.whispersystems.signalservice.internal.configuration.SignalCdnUrl;
 import org.whispersystems.signalservice.internal.configuration.SignalContactDiscoveryUrl;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -18,6 +26,7 @@ import org.whispersystems.libsignal.state.SignedPreKeyRecord;
 import org.whispersystems.libsignal.util.KeyHelper;
 import org.whispersystems.libsignal.util.guava.Optional;
 import org.whispersystems.signalservice.api.SignalServiceAccountManager;
+import org.whispersystems.signalservice.api.crypto.UnidentifiedAccess;
 import org.whispersystems.signalservice.api.push.TrustStore;
 import org.whispersystems.signalservice.internal.configuration.SignalServiceConfiguration;
 import org.whispersystems.signalservice.internal.configuration.SignalServiceUrl;
@@ -36,7 +45,7 @@ public class App
 
         final String     URL         = "https://textsecure-service.whispersystems.org";
         final TrustStore TRUST_STORE = new MyTrustStoreImpl();
-        final String     USERNAME    = "+14085026204";
+        final String     USERNAME    = "+16696968259";
         final String     PASSWORD    = "evanchopra1234";
         final String     USER_AGENT  = "computer";
         SignalServiceConfiguration x = new SignalServiceConfiguration( new SignalServiceUrl[]{new SignalServiceUrl(URL, TRUST_STORE)},
@@ -45,25 +54,24 @@ public class App
         System.out.println(TRUST_STORE.getKeyStoreInputStream());
         SignalServiceAccountManager accountManager = new SignalServiceAccountManager(x, null,
                                                                                     USERNAME, PASSWORD, USER_AGENT);
-        System.out.println("Here");
-        // try{
-        try {
-            accountManager.requestSmsVerificationCode(false, Optional.fromNullable("signal-recaptcha-v2.6LfBXs0bAAAAAAjkDyyI1Lk5gBAUWfhI_bIyox5W.registration.03AIIukzgdwp4qHvtSRJfT5Jjhswg5PGnLSAXMS-eI5qMMsYM_Mraw1cevZu764tV4ZuaRs6k5Cc7VOkJ-KU86LN6jOo7LNmdTDYltO_-gcFXN4kGvzvptCYTq0jcWv_z6MkCp4hXyzVwerRaaI359TxHwjPk38e8AtnmAnojpKQj8Qp56S0xqU5Z3_MXiaDoyE1C9D0t28SZglftH1qWlkpZDUdcoDY01w6P2J8B8vnGGL9_iU3fBRfPNb8La8hlIfrFULvBLsb-G_M7ytyR2QcrgYUF2VCultGS6rowc5ZvVEitTfhNYobU76DF0P6-KKpvYxEC-PziRQdVaVdoioNFKIAXZEGW1u25eERrKaRmY8lhMsIRi0kyYoH32H8rt98x-es9F0Jt9YBQ6e9n0Pw4iivRyzDieul6aVIOpq-bdSAtvikhCFRvTuXTmrrg_fM15bR5tv7oWsEbOi5IG2uICvEU4cG79-1PGQ6OjtowkPCD9voTrhm7-NN-Vjk6WZmcmHR0ytrdRMcmHkoS11ZqNiPzecqoh5-rbhRW76jIJuQOqL1tScYZ5JEidwqLswmUyLnJBOJPCOFF7hGQO5FQ9m1NTXmdn4DZ6PsGye4w4mFCYyXEVA7ru5Ld_jGU0LQOS3b41MiWYeo9oBCcUT6slodqPedR4A6Gb3B8rNGHfcLc3aq50xceLuYuNMBgCzNmEJ25EbPZlKSfZS9t0yntTvez-eGrY_hG5uUvycfR1ArbhTyM_Dh1obPS7EDOhUh23sVK9iNYDf3SyJMbIIoeg7FPhpXYT_cYvY7t684nhPMzRuqOkqxBF3xQTwOLkcZoeOqzzku80D6liQRB3yMlnMAAAYL6Lr47vtxw24U_fWB3myjbvWDrcL4joKwepD0q28Ws0fRDJSZ8imySmbX5hsNfVdAd7C4LDAxkpm-MDUHuivR9nSzokmtafaQB0A8C8s18N7OvX0x-8q13Ognb-7z75jGjPhCsNT1PO9U1Zl5J6gyoCL2FNJcuxwi24HCZrf23fOdGEaZPNCmRPMD6-2OzE4dcVhkAhu1JtJcSbX8WoOE1JXR9mQfwfIrevInf32IqiRBkceiBzIUtcrEQpM7PNQDudHVTxGhUDcsmWMaMp1Y7IRKt7eDAHK0JyKS-4b9M9Es1NbgpkBY0EMsmqZRYeDbSiAGv2OGaS_r2Nh9HRlETgJi_ceHNa8d-EOpvLY40qbbPntRVhjxDdIbAnRbZFISdupCC_7UctjAwHcBvTRJrFTy5o5d7geAeW6fCTdQqhDHynd94c7DGoCtiCqDuK-hFfCUURV2dLQ1yhkGF7HOoo7SHcYxU4et1Kc--nuLdvnkg2KmiKutCXPrbCtIF4xmU1c-iEaO-CT8efdSDQHtew__GUsB0ZfEgLzqk4zpAjOr_9vFNhrfri3AiPexwsxbcP4CiFV3OU_CUIlLpp6o9g6kusLhaUVf8nPYcpbPlJjgpXtSr9L-VDLwg2DxosDPzdk8iZEnqDrGA69PDxNE0j1r_uzEu7V2vXtlKRoVV0bGf00-00-kmBWHKymE0GN9UzddCBBiUEGQS1m9z1cWBPRlfxgb8TA8AVA8YshZ0QW7qgcwTbMK6J7xSNcC3QVnHxPmsFasrQNGLuaffqgy6HWyWnzAGjTZ_0vLuRbRcQFGaGwbUwOhzzR_WTMJuVqGa1TQ"), Optional.fromNullable("x"));
-        } catch (IOException e) {
+        try{
+            String signalCaptcha = "signal-recaptcha-v2.6LfBXs0bAAAAAAjkDyyI1Lk5gBAUWfhI_bIyox5W.registration.03AEkXODBaSHPYaibn9lWs18l1fipGpnMSr49MuhjmrnDv_Ej1Xr3ndVqDxuamQ4AYAopY-xQMrcDVIhGMVlbaT6Fs1bVpdtANChQJWsp7kGGGazM5PQhMOA3PP6TpaDXct_jq8ayheE28iRvLPMkDtIJHgBVAQdaJzd3rQ4_impUBORrjone_ICcYCDSYTAryNdDc7FqJD7NrTW7HCgiphBS-U352UNxcVCjezZc-3lNXn4Sp4exN55WKOSVmP-H3ZhVW_mQnTU9SiMmbxW1-uOr3IxspTu3XQLFkcw1n9a5qE_st1M9BS2qLgsSLRCiYRNGT-mapZ51A5wFlwPHbs15W1vA2DYTBCElBsbtjkP1wcwxJ0URiQEA7H2Uh5bK7rAAtfRWnUrUm4W00HVPCXbE71w3kI0BggRlN75zk64aIAwXYg67b5Tyn1wq3Y5GRkEpEVVxYvPQnry7Mc0J-26Txu6gsZphpwk8oPSo3V6bqoiPJLzjFQ--2lABZ_9nHTba9yZK1B5vdirqQhLhWHQzo8B65zG9ZWWkhbDHB7Axog0WAS2nhvBbV9-Dfg-9LfAiZMcOIs30V9t-OEX2QiQ818wWW4phRAPDUNJ7n48TpgtP13w2t0KAA5WiFOsOLiaQK29urNNKoEn9tUYgw7XvWfd6xa6kgJ4laEnV2Wu25yRhpg8tHGCHt9zlGa_Cj8VhwbcpNmbCY3oo851Hfy9bDi1Qrf0VXYLOZ3maxy98Hhkk1qSP2A9pa9Xl4xDAKkIu9ZYFea1hyeXguRzTMIzRpqJ10plo5WJDSJJT6WQxU0GYtx0AjJ3BS4kVgxVoZ4qFPiqQP9jPyYQRFdtEuztOeFxMZBtvYLfkmw3TllERxaUgN9HKIaxETZp2146awFZ4mehJnZ4RwvNNGODHCJCIoOh-W0na5nEqIzAwdIAbfD49WFAMOePM4TitjjMMJmO9DnkeMfoDIliP1yd75ravxvKRsQY5zmkGtWX_zr60pGB3bb1oGL9_ZOI4EJ9a12ylmKEOMyrSEANcc02hY-YMHkZjgDi5YbID3Da--jbHEb2pQO6QFdyV7dDiFMfqUA5jI7OoT4DGgzMKP1IZsljvjPSc6yWdVEDPRMrTOx-5pZ_V_8KwPHbhJrp3O0s-1WlhPrM8hbHOwtYpX2NWwR29H8PYWf6xTKSHYrQYtpOnB-A7ABGRiVPQWS4rP4DeBvF0UsEkJXp19DFJR6Zd4wXjKP-vNDF09fM9nB3HvIPqwddMTPRwHWbS2fyk3MVmjoIYnVF4XowRy";
+            accountManager.requestSmsVerificationCode(false, Optional.fromNullable(signalCaptcha), Optional.fromNullable("x"));
+        } catch (IOException ha) {
             // TODO Auto-generated catch block
-            e.printStackTrace();
+            ha.printStackTrace();
         }
         Scanner in = new Scanner(System.in);
  
         String code = in.nextLine();
         byte[] profileKey = Util.getSecretBytes(32);
-        Random random = new Random();
-        int installID = random.nextInt(10000);
-        UUID id;
+        int registrationID = KeyHelper.generateRegistrationId(false);
+        byte[] unidentifiedAccessKey = UnidentifiedAccess.deriveAccessKeyFrom(profileKey);
         try {
-            id = accountManager.verifyAccountWithCode(code, null, installID, true, null, profileKey, false);
-        } catch (IOException e) {
-            e.printStackTrace();
+            UUID id = accountManager.verifyAccountWithCode(code, null, registrationID, true, null, unidentifiedAccessKey, false);
+            System.out.println(id);
+        } catch (IOException rr) {
+            rr.printStackTrace();
         }
         // } catch(Exception e){
         //     System.out.println(e);
@@ -78,6 +86,6 @@ public class App
 
         // accountManager.setGcmId(Optional.of(GoogleCloudMessaging.getInstance(this).register(REGISTRATION_ID)));
         // accountManager.setPreKeys(identityKey.getPublicKey(), lastResortKey, signedPreKeyRecord, oneTimePreKeys);
-        System.out.println( "Hello World!" );
+        System.out.print(registrationID);
     }
 }
