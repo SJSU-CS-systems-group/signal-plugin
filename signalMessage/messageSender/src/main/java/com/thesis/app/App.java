@@ -36,6 +36,7 @@ import org.whispersystems.libsignal.state.impl.InMemorySignedPreKeyStore;
 import org.whispersystems.libsignal.util.KeyHelper;
 import org.whispersystems.libsignal.util.guava.Optional;
 import org.whispersystems.signalservice.api.SignalServiceAccountManager;
+import org.whispersystems.signalservice.api.SignalServiceMessageSender;
 import org.whispersystems.signalservice.api.crypto.UnidentifiedAccess;
 import org.whispersystems.signalservice.api.push.TrustStore;
 import org.whispersystems.signalservice.internal.configuration.SignalServiceConfiguration;
@@ -81,8 +82,9 @@ public class App
         byte[] profileKey = Util.getSecretBytes(32);
         registrationID = KeyHelper.generateRegistrationId(false);
         byte[] unidentifiedAccessKey = UnidentifiedAccess.deriveAccessKeyFrom(profileKey);
+        UUID id = null;
         try {
-            UUID id = accountManager.verifyAccountWithCode(code, null, registrationID, true, null, unidentifiedAccessKey, false);
+            id = accountManager.verifyAccountWithCode(code, null, registrationID, true, null, unidentifiedAccessKey, false);
             System.out.println(id);
         } catch (IOException rr) {
             rr.printStackTrace();
@@ -92,18 +94,13 @@ public class App
         } catch (IOException e) {
             e.printStackTrace();
         }
+        System.out.print(unidentifiedAccessKey);
+        sendMessage("hello world", "code", "ad", x, id);
     }
 
-    public void sendMessage(String message, int number, String name){
-        SignalProtocolAddress receiptant =  new SignalProtocolAddress("evan", registrationID);
-        SessionStore      sessionStore      = new InMemorySessionStore();
-        PreKeyStore       preKeyStore       = new InMemoryPreKeyStore();
-        SignedPreKeyStore signedPreKeyStore = new InMemorySignedPreKeyStore();
-        IdentityKeyStore  identityStore     = new InMemoryIdentityKeyStore(keys.getIdentityKeyPair(), registrationID);
-        SessionBuilder sessionBuilder = new SessionBuilder(sessionStore, preKeyStore, signedPreKeyStore,
-                                                   identityStore, receiptant);
-        //Build a new session from a org.whispersystems.libsignal.state.PreKeyBundle retrieved from a server.
-        // But where do I get the prekey??
-        sessionBuilder.process();
+    public void sendMessage(String message, String number, String name, SignalServiceConfiguration config, UUID id){
+        SignalServiceMessageSender sender = new SignalServiceMessageSender(config, id, USERNAME , PASSWORD, USER_AGENT, false, null);
+        long timestamp = 21312432;
+        sender.sendMessage(new SignalServiceAddress("+14088075656",1), unidentifiedAccessKey, new SignalServiceDataMessage(21312432, "Hello World"));
     }
 }
