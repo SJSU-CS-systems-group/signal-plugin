@@ -1,6 +1,7 @@
 package com.thesis.app;
 
 import java.security.InvalidKeyException;
+import java.security.interfaces.ECKey;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -17,6 +18,7 @@ import org.signal.libsignal.protocol.IdentityKeyPair;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 
+
 public class myKeyStore {
     IdentityKeyPair identityKeyPair;
     int registrationId;
@@ -28,12 +30,34 @@ public class myKeyStore {
         Random rand = new Random();
         int upperbound = 1000;
         int int_random = rand.nextInt(upperbound);
-        this.preKeys = new ArrayList<PreKeyRecord>();
-        this.preKeys.add(new PreKeyRecord(100, generateECKeyPair()));
-        this.signedPreKey = new SignedPreKeyRecord(int_random, int_random, generateECKeyPair(), new byte[8]);
+        this.preKeys = generatePreKeyRecords(1, 100);
+        this.signedPreKey = generateSignedPreKeyRecord(int_random);
     }
 
+    // From signal-cli
+    public List<PreKeyRecord> generatePreKeyRecords(int offset, final int batchSize) {
+        ArrayList<PreKeyRecord> records = new ArrayList<PreKeyRecord>(batchSize);
+        for (int i = 0; i < batchSize; i++) {
+            int preKeyId = (offset + i) % 10000000;
+            ECKeyPair keyPair = generateECKeyPair();
+            PreKeyRecord record = new PreKeyRecord(preKeyId, keyPair);
 
+            records.add(record);
+        }
+        return records;
+    }
+
+    public SignedPreKeyRecord generateSignedPreKeyRecord(int random) {
+        ECKeyPair keyPair = generateECKeyPair();
+        byte[] signature = null;
+        try {
+            signature = Curve.calculateSignature(this.identityKeyPair.getPrivateKey(), keyPair.getPublicKey().serialize());
+        } catch (org.signal.libsignal.protocol.InvalidKeyException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return new SignedPreKeyRecord(random, System.currentTimeMillis(), keyPair, signature);
+    }
     // public myKeyStore(IdentityKeyPair key) throws org.whispersystems.libsignal.InvalidKeyException{
     //     this.identityKeyPair = key;
     //     Random rand = new Random();
