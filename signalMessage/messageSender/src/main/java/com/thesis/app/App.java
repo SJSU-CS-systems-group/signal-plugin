@@ -7,6 +7,7 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.SecureRandom;
 import java.security.Security;
+import java.security.Timestamp;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,10 +30,12 @@ import org.whispersystems.signalservice.internal.configuration.SignalCdsiUrl;
 import org.whispersystems.signalservice.internal.configuration.SignalContactDiscoveryUrl;
 import org.whispersystems.signalservice.internal.configuration.SignalKeyBackupServiceUrl;
 import org.whispersystems.signalservice.internal.configuration.SignalProxy;
+import org.signal.libsignal.metadata.certificate.InvalidCertificateException;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.IdentityKeyPair;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.profiles.ClientZkProfileOperations;
 import org.signal.libsignal.zkgroup.profiles.ProfileKey;
 import org.whispersystems.libsignal.InvalidKeyException;
 import org.whispersystems.libsignal.SessionBuilder;
@@ -50,20 +53,27 @@ import org.whispersystems.libsignal.state.impl.InMemorySessionStore;
 import org.whispersystems.libsignal.state.impl.InMemorySignalProtocolStore;
 import org.whispersystems.libsignal.state.impl.InMemorySignedPreKeyStore;
 import org.signal.libsignal.protocol.util.KeyHelper;
+import org.whispersystems.signalservice.api.SignalServiceAccountDataStore;
 import org.whispersystems.signalservice.api.SignalServiceAccountManager;
+import org.whispersystems.signalservice.api.SignalServiceDataStore;
 import org.whispersystems.signalservice.api.SignalServiceMessageReceiver;
 import org.whispersystems.signalservice.api.SignalServiceMessageSender;
+import org.whispersystems.signalservice.api.SignalWebSocket;
 import org.whispersystems.signalservice.api.account.AccountAttributes;
+import org.whispersystems.signalservice.api.crypto.ContentHint;
 import org.whispersystems.signalservice.api.crypto.UnidentifiedAccess;
 import org.whispersystems.signalservice.api.crypto.UnidentifiedAccessPair;
 import org.whispersystems.signalservice.api.crypto.UntrustedIdentityException;
 import org.whispersystems.signalservice.api.messages.SignalServiceDataMessage;
 import org.whispersystems.signalservice.api.push.ACI;
 import org.whispersystems.signalservice.api.push.PNI;
+import org.whispersystems.signalservice.api.push.ServiceId;
 import org.whispersystems.signalservice.api.push.ServiceIdType;
 import org.whispersystems.signalservice.api.push.SignalServiceAddress;
 import org.whispersystems.signalservice.api.push.TrustStore;
 import org.whispersystems.signalservice.api.storage.SignalAccountRecord;
+import org.whispersystems.signalservice.api.websocket.HealthMonitor;
+import org.whispersystems.signalservice.api.websocket.WebSocketFactory;
 import org.whispersystems.signalservice.internal.configuration.SignalServiceConfiguration;
 import org.whispersystems.signalservice.internal.configuration.SignalServiceUrl;
 import org.whispersystems.signalservice.internal.configuration.SignalStorageUrl;
@@ -76,6 +86,7 @@ import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
 import okhttp3.Dns;
+import okhttp3.EventListener;
 import okhttp3.Interceptor;
 import okhttp3.WebSocket;
 
@@ -97,6 +108,9 @@ public class App {
     int registrationID;
     SignalServiceAccountManager accountManager;
     int pniRegistrationId;
+    ACI aci;
+    PNI pni;
+    byte[] unidentifiedAccessKey; 
 
     public App() {
         this.URL = "https://textsecure-service.whispersystems.org";
@@ -104,16 +118,6 @@ public class App {
         this.USERNAME = "+14085026204";
         this.PASSWORD = "evanchopra1234";
         this.USER_AGENT = "Mozilla/5.0 (Linux; Android 12; Pixel 6 Build/SD1A.210817.023; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/94.0.4606.71 Mobile Safari/537.36";
-        // SignalServiceUrl[] signalServiceUrls,
-        // Map<Integer, SignalCdnUrl[]> signalCdnUrlMap,
-        // SignalContactDiscoveryUrl[] signalContactDiscoveryUrls,
-        // SignalKeyBackupServiceUrl[] signalKeyBackupServiceUrls,
-        // SignalStorageUrl[] signalStorageUrls,
-        // SignalCdsiUrl[] signalCdsiUrls,
-        // List<Interceptor> networkInterceptors,
-        // Optional<Dns> dns,
-        // Optional<SignalProxy> proxy,
-        // byte[] zkGroupServerPublicParams)
         this.allUrls = new SignalServiceUrl[] { new SignalServiceUrl(this.URL, this.TRUST_STORE) };
         Map<Integer, SignalCdnUrl[]> signalCDNMap = new HashMap<Integer, SignalCdnUrl[]>();
         signalCDNMap.put(0, new SignalCdnUrl[] { new SignalCdnUrl("https://cdn.signal.org", TRUST_STORE) });
@@ -140,16 +144,14 @@ public class App {
             throws InvalidKeyException, KeyStoreException, BackingStoreException, IOException, InterruptedException {
         Security.addProvider(new BouncyCastleProvider());
         KeyStore keyStore = KeyStore.getInstance("BKS");
-        // UUID iddd = UUID.fromString("496539c2-62ae-40db-b844-d7d36db92eb4");
         App example = new App();
-        // UUID id = UUID.fromString(example.prefs.get("UUID", ""));
-        // SignalServiceAccountManager accountManager = new
-        // SignalServiceAccountManager(example.conf, id,
-        // example. USERNAME, example.PASSWORD, example.USER_AGENT);
         example.register();
-        // TimeUnit.MINUTES.sleep(1);
         example.sendNewPreKeyBundle();
-        // example.sendMessage("hello");
+        example.sendMessage();
+
+    }
+
+    public void saveNeedKeys() {
 
     }
 
@@ -158,10 +160,8 @@ public class App {
         try {
             this.keys = new myKeyStore();
         } catch (java.security.InvalidKeyException e1) {
-            // TODO Auto-generated catch block
             e1.printStackTrace();
         } catch (InvalidKeyException e1) {
-            // TODO Auto-generated catch block
             e1.printStackTrace();
         }
         // String str = new String(this.keys.identityKeyPair.serialize());
@@ -172,7 +172,7 @@ public class App {
                 this.USER_AGENT,
                 null,
                 true);
-        String signalCaptcha = "signal-recaptcha-v2.6LfBXs0bAAAAAAjkDyyI1Lk5gBAUWfhI_bIyox5W.registration.03AEkXODA3njXHXZlodnhAACEysJ4tQ5i9AiQiFkQpggY3vjTmN3E7ia48E1bw0jN7sqsqnoKe6wQ90-jOKjdQp8MQ5GXYJiDEwyel6dW4ix3vZ4jUMAs_dFPOMlUCDGj9nWNfBFwPAbIiC2jnTLyv_sZLmuu2z-uEKJ8K2nxQ8MT9Nld1UXRfsnU1DQ8nQ-S9A3tw-ZyQYl7FTG_kGQVGh3Hl_MCkOQC7SfE_rCkpBTnR0etV5ZJDhKphOZ9w8IXBuyk-Yj-fp7fa9pX-lOpmACSywsO2Z-3i9Cxn9BIo5X1nwdClKtddz6JOkrIiPlEbT0ho4goPOiUiNuG5TkRmc1Rta0MXFRgcaxJGeeblFJ1NjpGUMceQaYPgRuFn7D90kT1MyQbuFhn40Ca6jNR-CKAbZIX-Mx5P-8Q7C6-YA1fsR9ZUqmOm4gZD0luetkKiudlNrPOpmKCcrkcu8EX09l-c9OsKjyhywo8kkKVWynz6jYKhM7neecbQTHruJNi1OZfesMpW_rpA62wolWtBrrhS9kKjcJWWlbU2n3Tfaq9-NRa9n0pk2AW38pfPIkuN155djG1Na7bdBpo5nvkqIU7_tqEZjiIPmyavdccX3gsQd6zLf7uSKyk-ljbU3sNOKnUiUlJ0aSkBZ0kf_gxNJG5ETsn505eSf3v2hGWMmCO4IPvmdd41X0X-3Ae_RTKmzYvoTOMkIx9AeMZ-bWhUo5OQbWUkrN2D9YugGAjTvrernSk491A2O9rmy9KXb8sNATLdKdgoe42nDSNS7pl4fOTmT4jVUUJrWwVDI1DJtSFxtj7b4WmbE3ejdmKWOXPqy8y5xhKEyjWAPqiAJHTDYwGQdmMeV-cxQdUrB3JL_Ltp_7fyQf488iQ4GDf6Hx-_veZ4FCMLIR-X-QJFYAVmE83L8Cgty_TdjPxX-kVX1vY24hHZC-atdJ-oudVrLb8xgqsu2Gogkv6qsHRB_qShkoEBjjmrdHrKyzjklJSBKwAp1m8x9kKT-iR86FlufxbpW75nrJ-LY4zRLJ4HbzsfMN9HpumbI6NOi0MCduJ-Zcc_hKN1w2PSrwZCFCpsGbeq9ABiW2ZyaMYuikEbUyxEhjztyf9C2-or3zqzdFMIPDQNiMZlcCgMPXHDoivsHYkqWigyXeBzhy5S0dvpmmxO8JPENqwDTfiFx0L_w6I30poH-q0xDuMDsMdQMbKwwXefhcPQFQPScxpJCOICzT6eqmORdeLFY6RRE9u_qdgH-14nQSG8Pgc-ec6Aw1g1w_fLcuXjf6qUzvfiQ1R9XUaNhXsLDI1iTNtn782rzXaUNfAt2Ps5SSZLOThy7jrvRfP_sdoxV4jODshWMAoZQMrVg33I_fjn0YJMoQ";
+        String signalCaptcha = "signal-recaptcha-v2.6LfBXs0bAAAAAAjkDyyI1Lk5gBAUWfhI_bIyox5W.registration.03AEkXODDXeuB0GQZFRJ-BFNy9vnxlsYFcuqohAO-8UidiHu_4XbgLW070XJjlggY3If61gVLeI5CgX8DwylbQFWq6jIaN4mR-X1LjQn9Eegmf5SLnDdk7vZSVpqQR0bMuffTRpsaCVbfODr4w8GuoT2NtTGqz0ZD6QSM6eI2EyksoQ1BIuSUhPvIDwzVEWXgXijrcbgzrjEgAFlaXb7j-uZCrmLLbYxYLvIIzpyndmmRyR1fYpmlQK9TFqIX3Uggqap6sPVJfY9l8Zk5WLhJUafd7nKRbWQ3o6cZETIdsUdv9HiQrXUVYysAI-uU-0E15k7Aih3Lg9wkc0xiDQtrQyXlGIBayo5m8TP69KPAnW0seDUxXW-VVKOEXGiATMqQVDBZHx6dwyme0EqOhaUrShJ8kjFtaJyeoOW3gQSaM4xCSRt7jx6UD4XK8RXoCR9SkOAc9mHG23dEMEQcEmgHnc15Nhtyju0EJzBesUqjRQWs8Jrmz0QCyl4oNMrxIUgBeUf3AZlsNV7poC7HJQBt--x1iH4uwwRYueEZH1Ug1JPyEisd8Uet_F8EFTV58xJPxr_Qx1KjGoQ9GlWRCZDXKfwJ1ngJKL1OYzkCeKqgrCP0Skcl6bVKs5E_ByUn48UU6BxPAmRJuKQqXG2U0o1CHK4nXmo5budIinlg-EtK8t19ZEraKk55RLvbNVykOsDI3_dazeefBf0GFjK8Y0lCwvXp_e-rc6-RxnHc9Q8zcwKYesimqz946997mg8DNQ6Pun205L7J4l2FRzUZlsx8NT4MipUGcNDMoWJkchhRjKt3vzvgszWDcJJfGFcFMCfbe4KYpT4iGZUr3IcLQdYn5VV8K3OcbMosBuNrnCLWpGVTHJ7U9OgRJ0MPn2aod61tKDhKSOm1rswejT7b4wDTZZOVP4JHakm4L01eWASvdEMshk2Fg3PUUJGjZPMbFquGCZaTNe7-5R8SyVyttehpNWFFXGM-YOigKLgvxd-lmOOcrtYv7Yu7MWJbcDi_k4Xaz3Y9xWm19B0lc7SJ9otc6yTOTn0sWWZvA4sr29Cld0DcpC723t7T7urPmoqu3FnfGCvTWrd-KX_RrO_f10V8ue9tgXU2FAVgqpSZQyef81C8hugd9dPPj3puKTBoZphE9-dOUkPDK3p-SAExUcvtF41ywTpKj4POO1s2XyAAuhm3qcIuffG-jDygvRHjNXcFiv_bMd_bxzvQZHiY15ZZlU2a3e_MAGbTE_hhQyuDsOHKAUfG97mmq-oBIDlV0VRVEaWMuJ6TfouHn6sEw7EmYxeIx0mWFwaYOgnc-btpBAseJUupF_5ID_z9w1lT6eRpjciwpfZCyNJcU1D9_VrB12rsX0DiO6x-uvQ";
         ServiceResponse<RequestVerificationCodeResponse> hi = this.accountManager.requestSmsVerificationCode(false,
                 Optional.ofNullable(signalCaptcha), Optional.ofNullable("x"), Optional.ofNullable("x"));
         System.out.println(hi.getStatus());
@@ -189,7 +189,7 @@ public class App {
         this.registrationID = KeyHelper.generateRegistrationId(false);
         this.pniRegistrationId = KeyHelper.generateRegistrationId(false);
         // prefs.put("REGISTRATION_ID", Integer.toString(this.registrationID));
-        byte[] unidentifiedAccessKey = UnidentifiedAccess.deriveAccessKeyFrom(profileKey);
+        this.unidentifiedAccessKey = UnidentifiedAccess.deriveAccessKeyFrom(profileKey);
         int signalKey = 1324;
         // UUID id = null;
         ServiceResponse<VerifyAccountResponse> example = null;
@@ -207,10 +207,8 @@ public class App {
                 true, this.pniRegistrationId);
         System.out.println(example.getResult());
         Optional<VerifyAccountResponse> result = example.getResult();
-        ACI aci = ACI.parseOrNull(result.get().getUuid());
-        PNI pni = PNI.parseOrNull(result.get().getPni());
-        System.out.println("ACI" + aci);
-        System.out.println("PNI" + pni);
+        this.aci = ACI.parseOrNull(result.get().getUuid());
+        this.pni = PNI.parseOrNull(result.get().getPni());
 
         this.accountManager = new SignalServiceAccountManager(this.conf,
                 new DynamicCredentialsProvider(aci, pni, this.USERNAME, this.PASSWORD,
@@ -220,7 +218,8 @@ public class App {
                 true);
 
         try {
-            this.accountManager.setAccountAttributes(null, this.registrationID, true, null, null, unidentifiedAccessKey, true,
+            this.accountManager.setAccountAttributes(null, this.registrationID, true, null, null, unidentifiedAccessKey,
+                    true,
                     new AccountAttributes.Capabilities(false,
                             true,
                             false,
@@ -244,40 +243,52 @@ public class App {
     }
 
     public void sendNewPreKeyBundle() throws IOException, InvalidKeyException {
-        // String key = prefs.get("OG_IdentityKey", "");
-        // System.out.println(key);
-        // IdentityKeyPair IdKey = new IdentityKeyPair(key.getBytes("UTF-8"));
-        // this.keys = new myKeyStore(IdKey);
         this.accountManager.setPreKeys(ServiceIdType.PNI, this.keys.getIdentityKeyPair().getPublicKey(),
-                this.keys.signedPreKey, this.keys.preKeys);
+                this.keys.getPreSignedKey(), this.keys.getPreKeysList());
         this.accountManager.setPreKeys(ServiceIdType.ACI, this.keys.getIdentityKeyPair().getPublicKey(),
-                this.keys.signedPreKey, this.keys.preKeys);
-        System.out.println(this.accountManager.getPreKeysCount(ServiceIdType.PNI));
+                this.keys.getPreSignedKey(), this.keys.getPreKeysList());
     }
 
-    // public void sendMessage(String message){
-    // IdentityKeyPair newlyGenerated = KeyHelper.generateIdentityKeyPair();
-    // int regist = Integer.parseInt(prefs.get("REGISTRATION_ID", ""));
-    // UUID id = UUID.fromString(prefs.get("UUID", ""));
-    // System.out.println(id);
-    // proto = new InMemorySignalProtocolStore(newlyGenerated, regist);
-    // Optional<SignalServiceMessagePipe> pipe = Optional.absent();
-    // SignalServiceMessageSender sender = new SignalServiceMessageSender(this.conf,
-    // id, this.USERNAME , this.PASSWORD, proto, this.USER_AGENT, false, pipe, pipe,
-    // null);
-    // long timestamp = 21312432;
-    // Optional<UnidentifiedAccessPair> empty = Optional.absent();
-    // try {
-    // sender.sendMessage(new SignalServiceAddress(null, "+14088075656"), empty, new
-    // SignalServiceDataMessage(21312432, "Hello World"));
-    // } catch (UntrustedIdentityException e) {
-    // // TODO Auto-generated catch block
-    // e.printStackTrace();
-    // } catch (IOException e) {
-    // // TODO Auto-generated catch block
-    // e.printStackTrace();
-    // }
-    // // SignalServiceMessageReceiver x = new SignalServiceMessageReceiver(config,
-    // null, name, null, null)
-    // }
+    public void sendMessage(){
+        CredentialsProvider creds = new CredentialsProvider(this.aci, this.pni, this.USERNAME, this.PASSWORD, this.pniRegistrationId);
+        SignalServiceDataStore dataStore = (SignalServiceDataStore) new SignalStore(this.keys, this.pniRegistrationId);
+        WebSocketFactory fact = new WebSocketFactory() {
+            @Override
+            public WebSocketConnection createWebSocket() {
+                WebSocketConnection x = new WebSocketConnection("evan", conf, null, "message", null, "", false);
+                return x;
+            }
+
+            @Override
+            public WebSocketConnection createUnidentifiedWebSocket() {
+                WebSocketConnection x = new WebSocketConnection("evan", conf, null, "message", null, "", false);
+                return x;
+            }
+            
+        };
+        SignalWebSocket web = new SignalWebSocket(fact);
+        Long envSize = (long) 1000;
+        SignalServiceMessageSender sender = new SignalServiceMessageSender(conf, (org.whispersystems.signalservice.api.util.CredentialsProvider) creds, dataStore, null, "message", web, null, null, null, envSize, false);
+        long timestamp = System.currentTimeMillis();
+        SignalServiceDataMessage.Builder messageBuilder = SignalServiceDataMessage.newBuilder();
+        messageBuilder.withTimestamp(timestamp);
+        messageBuilder.withBody("hello");
+        SignalServiceDataMessage finalMessage = messageBuilder.build();
+        SignalServiceAddress toAddress = new SignalServiceAddress(null, "+14088075656");
+        UnidentifiedAccess firstKey = null;
+        try {
+            firstKey = new UnidentifiedAccess(this.unidentifiedAccessKey, this.unidentifiedAccessKey);
+        } catch (InvalidCertificateException e1) {
+            e1.printStackTrace();
+        }
+        UnidentifiedAccessPair pairs = new UnidentifiedAccessPair(firstKey, firstKey);
+        try {
+            sender.sendDataMessage(toAddress, Optional.ofNullable(pairs), ContentHint.DEFAULT, finalMessage, null, false, false);
+        } catch (UntrustedIdentityException | IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+    }      
+
 }

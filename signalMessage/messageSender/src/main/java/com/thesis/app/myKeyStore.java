@@ -3,8 +3,10 @@ package com.thesis.app;
 import java.security.InvalidKeyException;
 import java.security.interfaces.ECKey;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 
 import org.signal.libsignal.protocol.util.KeyHelper;
 import org.signal.libsignal.zkgroup.InvalidInputException;
@@ -17,13 +19,16 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.IdentityKeyPair;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.signal.libsignal.protocol.groups.state.SenderKeyRecord;
 
 
 public class myKeyStore {
     IdentityKeyPair identityKeyPair;
     int registrationId;
-    List<PreKeyRecord> preKeys;
-    SignedPreKeyRecord signedPreKey;
+    HashMap<Integer, PreKeyRecord> preKeys;
+    List<SignedPreKeyRecord> signedPreKey = new ArrayList<SignedPreKeyRecord>();
+    HashMap<UUID,SenderKeyRecord> SenderKeysMap;
+    int batch;
 
     public myKeyStore () throws InvalidKeyException, org.whispersystems.libsignal.InvalidKeyException {
         this.identityKeyPair = generateIdentityKey();
@@ -31,20 +36,21 @@ public class myKeyStore {
         int upperbound = 1000;
         int int_random = rand.nextInt(upperbound);
         this.preKeys = generatePreKeyRecords(1, 100);
-        this.signedPreKey = generateSignedPreKeyRecord(int_random);
+        this.signedPreKey.add(generateSignedPreKeyRecord(int_random));
     }
 
     // From signal-cli
-    public List<PreKeyRecord> generatePreKeyRecords(int offset, final int batchSize) {
-        ArrayList<PreKeyRecord> records = new ArrayList<PreKeyRecord>(batchSize);
+    public HashMap<Integer,PreKeyRecord> generatePreKeyRecords(int offset, final int batchSize) {
+        this.batch = batchSize;
+        HashMap<Integer,PreKeyRecord> x = new HashMap<Integer,PreKeyRecord>();
         for (int i = 0; i < batchSize; i++) {
             int preKeyId = (offset + i) % 10000000;
             ECKeyPair keyPair = generateECKeyPair();
             PreKeyRecord record = new PreKeyRecord(preKeyId, keyPair);
 
-            records.add(record);
+            x.put(preKeyId, record);
         }
-        return records;
+        return x;
     }
 
     public SignedPreKeyRecord generateSignedPreKeyRecord(int random) {
@@ -81,11 +87,17 @@ public class myKeyStore {
       }
 
     public SignedPreKeyRecord getPreSignedKey() {
-        return this.signedPreKey;
+        return this.signedPreKey.get(0);
     }
 
     public List<PreKeyRecord> getPreKeysList() {
-        return this.preKeys;
+        List<PreKeyRecord> list = new ArrayList<PreKeyRecord>(this.preKeys.values());
+        return list;
+    }
+
+    public void addPreKey(PreKeyRecord x){
+        this.batch += 1;
+        this.preKeys.put(this.batch,x);
     }
 
     public static ProfileKey generateProfileKey() throws InvalidInputException {
