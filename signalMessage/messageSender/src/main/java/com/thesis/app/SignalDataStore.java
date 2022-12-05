@@ -1,20 +1,21 @@
 package com.thesis.app;
 
 import org.whispersystems.signalservice.api.SignalServiceAccountDataStore;
+import org.whispersystems.signalservice.api.SignalServiceDataStore;
 import org.whispersystems.signalservice.api.push.ServiceId;
 
-public class SignalServiceDataStore{
+public class SignalDataStore implements SignalServiceDataStore{
     myKeyStore store;
     int regis;
     SignalServiceAccountDataStore pni;
     SignalServiceAccountDataStore aci;
 
     
-    public SignalServiceDataStore(myKeyStore x, int regis){
+    public SignalDataStore(myKeyStore x, int regis){
         this.store = x;
         this.regis = regis;
-        this.pni = (SignalServiceAccountDataStore) new SignalStore(this.store, this.regis);
-        this.aci = (SignalServiceAccountDataStore) new SignalStore(this.store, this.regis);
+        this.pni = (SignalServiceAccountDataStore) new SignalAccountStore(this.store, this.regis);
+        this.aci = (SignalServiceAccountDataStore) new SignalAccountStore(this.store, this.regis);
     }
     public SignalServiceAccountDataStore get(ServiceId accountIdentifier) {
         return this.pni;

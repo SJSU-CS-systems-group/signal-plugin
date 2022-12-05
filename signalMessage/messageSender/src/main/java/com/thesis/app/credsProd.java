@@ -2,14 +2,15 @@ package com.thesis.app;
 
 import org.whispersystems.signalservice.api.push.ACI;
 import org.whispersystems.signalservice.api.push.PNI;
+import org.whispersystems.signalservice.api.util.CredentialsProvider;
 
-public class CredentialsProvider {
+public class credsProd implements CredentialsProvider {
     ACI aci;
     PNI pni;
     String number;
     String password;
     int deviceId;
-    public CredentialsProvider(ACI aci, PNI pni, String number, String password, int deviceId){
+    public credsProd(ACI aci, PNI pni, String number, String password, int deviceId){
         this.aci = aci;
         this.pni = pni;
         this.number = number;

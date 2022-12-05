@@ -1,9 +1,12 @@
 package com.thesis.app;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import org.signal.libsignal.protocol.IdentityKey;
@@ -16,9 +19,13 @@ import org.signal.libsignal.protocol.state.PreKeyRecord;
 import org.signal.libsignal.protocol.state.SessionRecord;
 import org.signal.libsignal.protocol.state.SignalProtocolStore;
 import org.signal.libsignal.protocol.state.SignedPreKeyRecord;
+import org.whispersystems.signalservice.api.SignalServiceAccountDataStore;
+import org.whispersystems.signalservice.api.SignalServiceDataStore;
+import org.whispersystems.signalservice.api.push.DistributionId;
+import org.whispersystems.signalservice.api.push.ServiceId;
 import org.whispersystems.signalservice.api.push.SignalServiceAddress;
 
-public class SignalStore implements SignalProtocolStore {
+public class SignalAccountStore implements SignalServiceAccountDataStore {
 
     IdentityKeyPair IKP;
     myKeyStore keyStore;
@@ -26,7 +33,7 @@ public class SignalStore implements SignalProtocolStore {
     IdentityKey remoteIdentityKey;
     SignalProtocolAddress remoteServiceAddress;
 
-    public SignalStore(myKeyStore x, int LocalRegistrationId){
+    public SignalAccountStore(myKeyStore x, int LocalRegistrationId){
         this.keyStore = x;
         this.IKP = x.identityKeyPair;
         this.LocalRegistrationId = LocalRegistrationId;
@@ -154,6 +161,56 @@ public class SignalStore implements SignalProtocolStore {
     public SenderKeyRecord loadSenderKey(SignalProtocolAddress sender, UUID distributionId) {
         // TODO Auto-generated method stub
         return this.keyStore.SenderKeysMap.get(distributionId);
+    }
+
+    public SignalServiceAccountDataStore get(ServiceId accountIdentifier) {
+        return null;
+    }
+
+    public SignalServiceAccountDataStore aci() {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    public SignalServiceAccountDataStore pni() {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public void archiveSession(SignalProtocolAddress address) {
+        // TODO Auto-generated method stub
+        
+    }
+
+    @Override
+    public Set<SignalProtocolAddress> getAllAddressesWithActiveSessions(List<String> addressNames) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public Set<SignalProtocolAddress> getSenderKeySharedWith(DistributionId distributionId) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public void markSenderKeySharedWith(DistributionId distributionId, Collection<SignalProtocolAddress> addresses) {
+        // TODO Auto-generated method stub
+        
+    }
+
+    @Override
+    public void clearSenderKeySharedWith(Collection<SignalProtocolAddress> addresses) {
+        // TODO Auto-generated method stub
+        
+    }
+
+    @Override
+    public boolean isMultiDevice() {
+        // TODO Auto-generated method stub
+        return false;
     }
 
     
