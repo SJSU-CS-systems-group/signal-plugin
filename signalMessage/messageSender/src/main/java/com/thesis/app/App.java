@@ -19,6 +19,7 @@ import java.util.Random;
 import java.util.Scanner;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -78,6 +79,7 @@ import org.whispersystems.signalservice.api.storage.SignalAccountRecord;
 import org.whispersystems.signalservice.api.util.CredentialsProvider;
 import org.whispersystems.signalservice.api.websocket.HealthMonitor;
 import org.whispersystems.signalservice.api.websocket.WebSocketFactory;
+import org.whispersystems.signalservice.api.websocket.WebSocketUnavailableException;
 import org.whispersystems.signalservice.internal.configuration.SignalServiceConfiguration;
 import org.whispersystems.signalservice.internal.configuration.SignalServiceUrl;
 import org.whispersystems.signalservice.internal.configuration.SignalStorageUrl;
@@ -115,6 +117,9 @@ public class App {
     ACI aci;
     PNI pni;
     byte[] unidentifiedAccessKey; 
+    CredentialsProvider creds;
+    ProfileKey profileKey;
+
 
     public App() {
         this.URL = "https://textsecure-service.whispersystems.org";
@@ -149,9 +154,16 @@ public class App {
         Security.addProvider(new BouncyCastleProvider());
         KeyStore keyStore = KeyStore.getInstance("BKS");
         App example = new App();
+        System.out.println(args[0]);
+        String currentObjective = args[0];
+        // if(currentObjective.equals("register")){
         example.register();
-        example.sendNewPreKeyBundle();
-        Thread.sleep(30000);
+        // }
+
+        // }
+        // example.register();
+        // example.sendNewPreKeyBundle();
+        Thread.sleep(10000);
         // try {
         //     example.sendMessage();
         // } catch (InvalidInputException e) {
@@ -159,12 +171,18 @@ public class App {
         // } catch (InvalidCertificateException e) {
         //     e.printStackTrace();
         // }
-        example.recieveMessage();
+        try {
+            example.recieveMessage();
+        } catch (TimeoutException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
 
     }
 
-    public void saveNeedKeys() {
-
+    public void saveKeyStore(myKeyStore x) {
+        this.prefs.putByteArray("IdentityKeyPublic", x.identityKeyPair.getPublicKey().serialize());
+        this.prefs.putByteArray("IdentityKeyPrivate", x.identityKeyPair.getPublicKey().serialize());
     }
 
     public void register() throws BackingStoreException, UnsupportedEncodingException {
@@ -176,6 +194,7 @@ public class App {
         } catch (InvalidKeyException e1) {
             e1.printStackTrace();
         }
+        saveKeyStore(this.keys);
         // String str = new String(this.keys.identityKeyPair.serialize());
         // prefs.put("OG_IdentityKey", str);
         this.accountManager = new SignalServiceAccountManager(this.conf,
@@ -184,27 +203,27 @@ public class App {
                 this.USER_AGENT,
                 null,
                 true);
-        String signalCaptcha = "signal-recaptcha-v2.6LfBXs0bAAAAAAjkDyyI1Lk5gBAUWfhI_bIyox5W.registration.03AEkXODDUzZA7j_CdbZ3dFy-LWQ8m6XFXHM3JO7F0tT5WSQe_YoFNgTl3pA3HP4dAcpIN7P_NRKjqgHdN5dKuICVyRMXYu3RYn7M8bL3N8czUh6fNwapbzcWLQ3q4jaT7XjKHrXrtBC54Qs4CMBMRaM6bzLUxu2zwb_mF5V75g58VKf6HZBm_wZjUn5Zru8yf5jES0O3TV_Ytq3PKu47j8cL9tu2UFs__Lw1nbXvXoMDGDvhhfpIxLkujbpLU_fA789Brs8vvHz6X-XA27q_E1RWrXNdytwXWK5KDPRwt7reLZkQWizC9ZpmqL3kkFhSEOibnZQXpFuDKbQvHpOh6xThO4vt2tLyVFDktMfBbeUdgLIs71fG-uuqPNIU_6zwrUSevfa9n6rO0pDTLYyTZDPDt5fOOACuifxWjnyA3D8LsLC2jORyrdjWTlCerIn2SPpWZHUZ4B57tdeNVItxVawYztFQfbV66TJjNJ8_ERKoVx2khCfkw71DJ4ridVMWFI9jq8uIOn4xfLpK4f6uh3Fx6yE8obcFmrdi2HU0TwezMrWrmld19ub-V2Y4LPSEI2RqYIsFDiIeAvLCp3h6ArCn6zTLlEtzNmYSzTegF-WAZY0IYL8yKyCyKh6AWsb1Wg2UjvJrkrX3t7AFS-1k_Lk80dde_RHeqpw-uMSf4_WfZdQa6CkUmcfKE4gxDiZxuOZ2aVid8Xg5WU7Pl1eRCGwhQFhyiR_JFPI_Epi0BbpXTzXd3Rp36IgXOHoyJneM8CZPw51LIxn5ZjjeVeNkha9Z6vWQeIgCEL7cH9L-L8ZOTCP37xkJjrlR7fmoMSijzMv06Ye7VAjAk6uGVxUu6-AWnt1s_tQEAflihlkb6qu-yZVRjT4vxNhEXcki6E0Gb50GjsO8ZiU_boOYV3WLvv3ojaexFl5GbDdbQh0GMGFGGjvM5Tip3JybeeU2sjx1TIq8qieBRXg2yW156we7fBk1KH1zcq9YBMk6zmK_-vS89dk90GCEHPV8pj-e0bqHIVcVZA-QiXw_S-ylPrRsYJ0QFW6CmnCq4uoNcdZtpkds68ZSQGBheOWL0_74ikrRgIq9SCE-Xj0f7vLF6oykUcd5eYuo9WusWTmBJikAvn5PYnzg8hJpSbO1xi1RDZ4vyWWu7dw2CdZA8klB_GCG14mSrr9kugV8s8FYWSgGksyBiN38u6Ymyb_p4hWDN1QmVnL3xjsx_S4fM816Zjm14iee1F4by0y7dpo2berW2kyhPDT4-LRUhtAbTb9EIh3TnpvlWyu6NPddUHIFN1GpN3goFp6k0bLT8HA83sPKHxjUE3Uufi0ceOOH65UTCOkg0VoWEokHB7r5l8DAB-DQByNGOMHIOxU9yyw";
+        String signalCaptcha = "signal-recaptcha-v2.6LfBXs0bAAAAAAjkDyyI1Lk5gBAUWfhI_bIyox5W.registration.03AEkXODB24Jl3FKMCeqvFIPdEPA4av1pOGcJ8KswISdYhj4w-oivCY7f1t1Zuw8SmEp-P7kshKEvc4Rij4OAdKSfitzMUGyP9E7zbzWoTJq2OwvxYplGwTfsGnQPbdkVj8hWDCo1WMLuEYGH28dBQESEYceGkXpijZdk8clhxiHJwsTRSq371vTg3pEs8YLXh4J36Nxf12MdvpTNtTL1_DSkFy26KUsMXIAAOoUeW2d9ijadTUHOwU4AC-dMBM89DMoNjS-PtADftf24q03beIjH1pLkz9E8KUDc9C6Yyz4THwcyWpkApWdXmr7G9YKfKnUacRUERQNb0ZYCoPe0HMsG7jJR6yegsprGSOVQz68Hoc3u9IEPb2RziVmuZjXwOzd8gJv7BR5neTsVxeayHtUYhGRDQkB4s601si34eN_oiiPkJVB-rxRBF1lcD9KRZWigJLeeNzApB528K0x7QTtkMMQGvGym10TIjE0RC98fvRqGzRmtzH9bTql4Guq0jBUNMIVjixwMoW0mIvKIRYsPP4ae6O49JyMImkEJn3Q4V0DX7rO-qqcfMEP-0d72ZHEqfbU_xHDiLYsaDRqe1EwiTXv-1YMv_DVLABk8WBWEWbzagsIw71Azo4HszNqqXijxtPfwrADj7j6uYwk38Og8jmbDmNMAV_-KrYRYJJgvPv1AUMcTL2uDx4rLptA3eG5F-mV5mYqSJzKTxPn-gewXvGjtS-YWEHmhdzIbhIk3FVLJPCJnvTTj4LsRByH1JWwSH3Bj4LkCPEVuMwxsYRd1NpMVtS6WC0luMOy-QYnhR1UnzttkPGgtojxRy8G5XFfZwyG7fY6Ufjuvv2psY5MoGKKpgEOU5UvkDPRyikpB7AOF2NyzXW_6bRfsMmUYeZnjeYpoiFxvM_FAuMO6IUQKR_Ve9jhswgTx8uCyZg5W-o_Tkl_SsfMeuVfa9J2DIsefAUvxbgPxoIm0lAwfR-yAINRHadu4fdCOPf4VbIJruZSLVnht91Te12AXse_is5-dFRpqwJt3pj6-Nbx6ZLu1KaFcIapDnm-msBYtJa4hytTq9dJr97D-JhiBwJ3Nk8WREplXi8JFwHOQILeSbtj5eodl8Mw60L_NsoutXTWI4p0022b57eq4W6w9wnWl2FowptnLblrfllpqSdPVtL3mYWDEXXt4tRUYTnhfL8XxQ8tIarROCqOVCSLAbzuIEpaAZN4vZTTJ_DecrGW_HaIXuLSv-HHl3NvqYS84ZVdIt6gB9aC-izLTpMWHOQJuKHgfLb90CyBBMHWqH4mgHYZfrXHbr1qiZS1-sP04WByYYts6CrkzFLahTcbV_ZlxpmF2ZqjsQqLNmWSNthOzDT8U8mcHqbwDE-g";
         ServiceResponse<RequestVerificationCodeResponse> hi = this.accountManager.requestSmsVerificationCode(false,
                 Optional.ofNullable(signalCaptcha), Optional.ofNullable("x"), Optional.ofNullable("x"));
         System.out.println(hi.getStatus());
-        Scanner in = new Scanner(System.in);
 
-        String code = in.nextLine();
-        ProfileKey profileKey = null;
         try {
-            profileKey = myKeyStore.generateProfileKey();
-        } catch (InvalidInputException e) {
+            this.profileKey = myKeyStore.generateProfileKey();
+        } catch (InvalidInputException e1) {
             // TODO Auto-generated catch block
-            e.printStackTrace();
+            e1.printStackTrace();
         }
         this.registrationID = KeyHelper.generateRegistrationId(false);
         this.pniRegistrationId = KeyHelper.generateRegistrationId(false);
         // prefs.put("REGISTRATION_ID", Integer.toString(this.registrationID));
-        this.unidentifiedAccessKey = UnidentifiedAccess.deriveAccessKeyFrom(profileKey);
+        this.unidentifiedAccessKey = UnidentifiedAccess.deriveAccessKeyFrom(this.profileKey);
         int signalKey = 1324;
         // UUID id = null;
         ServiceResponse<VerifyAccountResponse> example = null;
+        Scanner in = new Scanner(System.in);
+        System.out.println("Please enter the code you have recieved via sms.");
+        String code = in.nextLine();
         example = this.accountManager.verifyAccount(code, signalKey, true, unidentifiedAccessKey, true,
                 new AccountAttributes.Capabilities(false,
                         true,
@@ -217,11 +236,14 @@ public class App {
                         false,
                         false),
                 true, this.pniRegistrationId);
-        System.out.println(example.getResult());
         Optional<VerifyAccountResponse> result = example.getResult();
         this.aci = ACI.parseOrNull(result.get().getUuid());
         this.pni = PNI.parseOrNull(result.get().getPni());
-
+        prefs.putByteArray("ACI", this.aci.toByteArray());
+        prefs.putByteArray("PNI", this.pni.toByteArray());
+        prefs.putInt("pniRegistrationId", this.pniRegistrationId);
+        prefs.putInt("registrationID", this.registrationID);
+        creds =  new credsProd(this.aci, this.pni, this.USERNAME, this.PASSWORD, this.pniRegistrationId);
         this.accountManager = new SignalServiceAccountManager(this.conf,
                 new DynamicCredentialsProvider(aci, pni, this.USERNAME, this.PASSWORD,
                         SignalServiceAddress.DEFAULT_DEVICE_ID),
@@ -247,11 +269,13 @@ public class App {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
-
-        // prefs.put("UUID", id.toString());
-        // prefs.put("SIGNALING_KEY", Integer.toString(signalKey));
-        System.out.println(example.getResult().get().toString());
-        System.out.println(example.getResult().get().getUuid());
+        prefs.putInt("signalKey", signalKey);
+        try {
+            sendNewPreKeyBundle();
+        } catch (IOException | InvalidKeyException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
     }
 
     public void sendNewPreKeyBundle() throws IOException, InvalidKeyException {
@@ -262,22 +286,8 @@ public class App {
     }
 
     public void sendMessage() throws InvalidInputException, InvalidCertificateException{
-        CredentialsProvider creds = new credsProd(this.aci, this.pni, this.USERNAME, this.PASSWORD, this.pniRegistrationId);
         SignalServiceDataStore dataStore = new SignalDataStore(this.keys, this.pniRegistrationId);
-        WebSocketFactory fact = new WebSocketFactory() {
-            @Override
-            public WebSocketConnection createWebSocket() {
-                WebSocketConnection x = new WebSocketConnection("evan", conf, null, "message", null, "", false);
-                return x;
-            }
-
-            @Override
-            public WebSocketConnection createUnidentifiedWebSocket() {
-                WebSocketConnection x = new WebSocketConnection("evan", conf, null, "message", null, "", false);
-                return x;
-            }
-            
-        };
+        WebSocketFactory fact = new webFact("evan", conf, creds);
         SignalWebSocket web = new SignalWebSocket(fact);
         Long envSize = (long) 1000;
         SignalServiceMessageSender sender = new SignalServiceMessageSender(conf, creds, dataStore, null, "message", web, null, null, null, envSize, false);
@@ -287,7 +297,7 @@ public class App {
         messageBuilder.withBody("hello");
         SignalServiceDataMessage finalMessage = messageBuilder.build();
         SignalServiceAddress toAddress = new SignalServiceAddress(this.pni, "+14088075656");
-        byte[] senderCert = UnidentifiedAccess.deriveAccessKeyFrom(myKeyStore.generateProfileKey());
+        byte[] senderCert = UnidentifiedAccess.deriveAccessKeyFrom(this.profileKey);
         UnidentifiedAccess self = new UnidentifiedAccess(this.unidentifiedAccessKey, senderCert);
         UnidentifiedAccessPair pairs = new UnidentifiedAccessPair(null, self);
         try {
@@ -298,17 +308,35 @@ public class App {
         }
 
     }      
+    public void printMessage(SignalServiceEnvelope x) {
+        byte[] content = x.getContent();
+        System.out.println(x.isSignalMessage());
+        System.out.println(content);
+    }
 
-    public void recieveMessage(){
-        CredentialsProvider creds = new credsProd(this.aci, this.pni, this.USERNAME, this.PASSWORD, this.pniRegistrationId);
-        SignalServiceMessageReceiver x = new SignalServiceMessageReceiver(conf, creds, this.PASSWORD, null, false);
-        try {
-            List<SignalServiceEnvelope> messages = x.retrieveMessages(false, null);
-            byte[] content = messages.get(0).getContent();
-            System.out.println(content);
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+    public void recieveMessage() throws WebSocketUnavailableException, TimeoutException, IOException{
+        WebSocketFactory fact = new webFact("evan", conf, creds);
+        SignalWebSocket websocket =  new SignalWebSocket(fact);
+        websocket.connect();
+        // Optional<SignalServiceEnvelope> env = websocket.readOrEmpty((long)10000,null);
+        // byte[] content = env.get().getContent();
+        // System.out.println(env.get().isSignalMessage());
+        // System.out.println(content);
+        
     }
 }
+
+
+
+
+
+    //     SignalServiceMessageReceiver x = new SignalServiceMessageReceiver(conf, creds, null, null, false);
+    //     try {
+    //         List<SignalServiceEnvelope> messages = x.retrieveMessages(false, null);
+    //         byte[] content = messages.get(0).getContent();
+    //         System.out.println(content);
+    //     } catch (IOException e) {
+    //         // TODO Auto-generated catch block
+    //         e.printStackTrace();
+    //     }
+    // }
