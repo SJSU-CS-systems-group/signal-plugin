@@ -1,30 +1,19 @@
 package com.thesis.app;
 
 import java.io.IOException;
-import java.io.Serial;
 import java.io.UnsupportedEncodingException;
-import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
-import java.security.SecureRandom;
 import java.security.Security;
-import java.security.Timestamp;
-import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Random;
 import java.util.Scanner;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
+import java.util.concurrent.TimeoutException;
+import java.lang.reflect.*;
 
 import org.whispersystems.signalservice.internal.ServiceResponse;
 import org.whispersystems.signalservice.internal.configuration.SignalCdnUrl;
@@ -33,32 +22,17 @@ import org.whispersystems.signalservice.internal.configuration.SignalContactDisc
 import org.whispersystems.signalservice.internal.configuration.SignalKeyBackupServiceUrl;
 import org.whispersystems.signalservice.internal.configuration.SignalProxy;
 import org.signal.libsignal.metadata.certificate.InvalidCertificateException;
-import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.IdentityKeyPair;
+
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.signal.libsignal.zkgroup.InvalidInputException;
-import org.signal.libsignal.zkgroup.profiles.ClientZkProfileOperations;
 import org.signal.libsignal.zkgroup.profiles.ProfileKey;
 import org.whispersystems.libsignal.InvalidKeyException;
-import org.whispersystems.libsignal.SessionBuilder;
-import org.whispersystems.libsignal.SignalProtocolAddress;
-import org.whispersystems.libsignal.state.IdentityKeyStore;
-import org.whispersystems.libsignal.state.PreKeyRecord;
-import org.whispersystems.libsignal.state.PreKeyStore;
-import org.whispersystems.libsignal.state.SessionStore;
+
 import org.whispersystems.libsignal.state.SignalProtocolStore;
-import org.whispersystems.libsignal.state.SignedPreKeyRecord;
-import org.whispersystems.libsignal.state.SignedPreKeyStore;
-import org.whispersystems.libsignal.state.impl.InMemoryIdentityKeyStore;
-import org.whispersystems.libsignal.state.impl.InMemoryPreKeyStore;
-import org.whispersystems.libsignal.state.impl.InMemorySessionStore;
-import org.whispersystems.libsignal.state.impl.InMemorySignalProtocolStore;
-import org.whispersystems.libsignal.state.impl.InMemorySignedPreKeyStore;
+
 import org.signal.libsignal.protocol.util.KeyHelper;
-import org.whispersystems.signalservice.api.SignalServiceAccountDataStore;
 import org.whispersystems.signalservice.api.SignalServiceAccountManager;
 import org.whispersystems.signalservice.api.SignalServiceDataStore;
-import org.whispersystems.signalservice.api.SignalServiceMessageReceiver;
 import org.whispersystems.signalservice.api.SignalServiceMessageSender;
 import org.whispersystems.signalservice.api.SignalWebSocket;
 import org.whispersystems.signalservice.api.account.AccountAttributes;
@@ -66,18 +40,14 @@ import org.whispersystems.signalservice.api.crypto.ContentHint;
 import org.whispersystems.signalservice.api.crypto.UnidentifiedAccess;
 import org.whispersystems.signalservice.api.crypto.UnidentifiedAccessPair;
 import org.whispersystems.signalservice.api.crypto.UntrustedIdentityException;
-import org.whispersystems.signalservice.api.messages.SignalServiceContent;
 import org.whispersystems.signalservice.api.messages.SignalServiceDataMessage;
 import org.whispersystems.signalservice.api.messages.SignalServiceEnvelope;
 import org.whispersystems.signalservice.api.push.ACI;
 import org.whispersystems.signalservice.api.push.PNI;
-import org.whispersystems.signalservice.api.push.ServiceId;
 import org.whispersystems.signalservice.api.push.ServiceIdType;
 import org.whispersystems.signalservice.api.push.SignalServiceAddress;
 import org.whispersystems.signalservice.api.push.TrustStore;
-import org.whispersystems.signalservice.api.storage.SignalAccountRecord;
 import org.whispersystems.signalservice.api.util.CredentialsProvider;
-import org.whispersystems.signalservice.api.websocket.HealthMonitor;
 import org.whispersystems.signalservice.api.websocket.WebSocketFactory;
 import org.whispersystems.signalservice.api.websocket.WebSocketUnavailableException;
 import org.whispersystems.signalservice.internal.configuration.SignalServiceConfiguration;
@@ -86,15 +56,10 @@ import org.whispersystems.signalservice.internal.configuration.SignalStorageUrl;
 import org.whispersystems.signalservice.internal.push.RequestVerificationCodeResponse;
 import org.whispersystems.signalservice.internal.push.VerifyAccountResponse;
 import org.whispersystems.signalservice.internal.util.DynamicCredentialsProvider;
-import org.whispersystems.signalservice.internal.util.Util;
-import org.whispersystems.signalservice.internal.websocket.WebSocketConnection;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
-
 import okhttp3.Dns;
-import okhttp3.EventListener;
 import okhttp3.Interceptor;
-import okhttp3.WebSocket;
 
 /**
  * Hello world!
@@ -292,6 +257,29 @@ public class App {
         Long envSize = (long) 1000;
         SignalServiceMessageSender sender = new SignalServiceMessageSender(conf, creds, dataStore, null, "message", web, null, null, null, envSize, false);
         long timestamp = System.currentTimeMillis();
+        Method m = null;
+        try {
+            m = SignalServiceMessageSender.class.getDeclaredMethod("sendMessage");
+        } catch (NoSuchMethodException e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        } catch (SecurityException e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        }
+        m.setAccessible(true);
+        try {
+            m.invoke(sender, "Green Goblin");
+        } catch (IllegalAccessException e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        } catch (IllegalArgumentException e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        } catch (InvocationTargetException e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        }
         SignalServiceDataMessage.Builder messageBuilder = SignalServiceDataMessage.newBuilder();
         messageBuilder.withTimestamp(timestamp);
         messageBuilder.withBody("hello");
